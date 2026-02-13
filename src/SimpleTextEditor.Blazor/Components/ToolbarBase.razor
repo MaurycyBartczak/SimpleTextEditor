@@ -1,0 +1,21 @@
+@namespace SimpleTextEditor.Blazor.Components
+
+<div class="ste-toolbar @Class">
+    @foreach (var item in Items)
+    {
+        @if (item.IsSeparator)
+        {
+            <div class="ste-toolbar-separator"></div>
+        }
+        else
+        {
+            <button type="button"
+                    class="ste-toolbar-button @(IsActive(item.Id) ? "ste-active" : "")"
+                    title="@GetTooltip(item)"
+                    disabled="@IsDisabled(item.Id)"
+                    @onclick="() => OnItemClick(item)">
+                <span class="material-symbols-outlined">@GetIcon(item.Icon)</span>
+            </button>
+        }
+    }
+</div>

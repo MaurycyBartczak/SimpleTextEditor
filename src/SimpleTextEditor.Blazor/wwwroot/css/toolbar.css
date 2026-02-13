@@ -1,0 +1,95 @@
+/* SimpleTextEditor - Toolbar Styles */
+
+.ste-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ste-toolbar-gap);
+    padding: var(--ste-toolbar-padding);
+    background: var(--ste-toolbar-bg);
+    border-bottom: 1px solid var(--ste-toolbar-border);
+}
+
+.ste-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: var(--ste-toolbar-gap);
+}
+
+.ste-toolbar-separator {
+    width: 1px;
+    height: 24px;
+    margin: 0 4px;
+    background: var(--ste-border-color);
+}
+
+.ste-toolbar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ste-toolbar-button-size);
+    height: var(--ste-toolbar-button-size);
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ste-toolbar-button-color);
+    cursor: pointer;
+    transition: all var(--ste-transition-fast);
+}
+
+.ste-toolbar-button:hover {
+    background: var(--ste-toolbar-button-hover-bg);
+    color: var(--ste-text-color);
+}
+
+.ste-toolbar-button:active {
+    background: var(--ste-toolbar-button-active-bg);
+}
+
+.ste-toolbar-button.ste-active {
+    background: var(--ste-primary-color);
+    color: white;
+}
+
+.ste-toolbar-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ste-toolbar-button:disabled:hover {
+    background: transparent;
+}
+
+/* Material Symbols icon styling */
+.ste-toolbar-button .material-symbols-outlined {
+    font-size: 20px;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Tooltip */
+.ste-toolbar-button[title] {
+    position: relative;
+}
+
+/* Responsive toolbar */
+@media (max-width: 600px) {
+    .ste-toolbar {
+        padding: 6px;
+        gap: 2px;
+    }
+
+    .ste-toolbar-button {
+        width: 32px;
+        height: 32px;
+    }
+
+    .ste-toolbar-button .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    .ste-toolbar-separator {
+        height: 20px;
+        margin: 0 2px;
+    }
+}

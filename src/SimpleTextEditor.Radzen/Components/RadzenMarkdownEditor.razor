@@ -1,0 +1,63 @@
+@namespace SimpleTextEditor.Radzen.Components
+
+<RadzenCard class="@ContainerClass">
+    @* Toolbar *@
+    <RadzenToolbar Items="@ToolbarItemsList"
+                   IconProvider="@IconProviderInstance"
+                   LocalizationProvider="@LocalizationProviderInstance"
+                   OnClick="@HandleToolbarClick"
+                   ActiveCheck="@IsToolbarItemActive"
+                   Class="@GetToolbarClass()" />
+    
+    @* Main content area *@
+    <div class="ste-main @LayoutClass">
+        @* Markdown Editor (visible in Markdown mode) *@
+        @if (CurrentMode == EditorMode.Markdown)
+        {
+            <div class="ste-editor-wrapper @GetEditorHiddenClass()">
+                <textarea @ref="_textareaRef"
+                          class="ste-editor ste-radzen-textarea rz-textarea"
+                          placeholder="@EffectivePlaceholder"
+                          readonly="@ReadOnly"
+                          style="@EditorStyle"
+                          @bind="InternalValue"
+                          @bind:event="oninput" />
+            </div>
+        }
+        
+        @* WYSIWYG Editor (visible in WYSIWYG mode) *@
+        @if (CurrentMode == EditorMode.Wysiwyg)
+        {
+            <div class="ste-editor-wrapper">
+                <div @ref="_wysiwygRef"
+                     class="ste-wysiwyg"
+                     contenteditable="@(!ReadOnly)"
+                     data-placeholder="@EffectivePlaceholder"
+                     style="@EditorStyle"
+                     @oninput="HandleWysiwygInput">
+                </div>
+            </div>
+        }
+        
+        @* Preview (only visible in Markdown mode with preview enabled) *@
+        @if (CurrentMode == EditorMode.Markdown && ShouldShowPreviewPanel)
+        {
+            <div class="ste-preview-wrapper @GetPreviewHiddenClass()">
+                @if (PreviewMode == PreviewMode.SideBySide && _showPreview)
+                {
+                    <div class="ste-preview-header">@LocalizationProviderInstance.Get("previewTitle")</div>
+                }
+                <PreviewPanel HtmlContent="@PreviewHtml"
+                              EmptyMessage="@LocalizationProviderInstance.Get("noPreview")"
+                              Class="@ThemeInstance.PreviewClass" />
+            </div>
+        }
+    </div>
+    
+    @* Hidden file input for image upload *@
+    <InputFile @ref="_imageInputRef" 
+               id="@_imageInputId"
+               OnChange="HandleImageFileSelected" 
+               accept="image/*" 
+               style="display: none;" />
+</RadzenCard>

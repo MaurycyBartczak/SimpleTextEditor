@@ -1,0 +1,92 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>SimpleTextEditor Demo</PageTitle>
+
+<RadzenLayout>
+    <RadzenBody>
+        <div class="rz-p-4">
+            <RadzenCard class="rz-mb-4">
+                <RadzenText TextStyle="TextStyle.H6">Podstawowy edytor Markdown</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4">
+                    Poniżej znajduje się edytor Markdown z podglądem side-by-side.
+                </RadzenText>
+                
+                <RadzenMarkdownEditor @bind-Value="@_content"
+                                      PreviewMode="PreviewMode.SideBySide"
+                                      Theme="light"
+                                      MinHeight="400"
+                                      Placeholder="Zacznij pisać w Markdown..."/>
+            </RadzenCard>
+            
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.H6">Tryb ciemny z toggle preview</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4">
+                    Edytor z ciemnym motywem i przełączanym podglądem.
+                </RadzenText>
+                
+                <RadzenMarkdownEditor @bind-Value="@_darkContent"
+                                      PreviewMode="PreviewMode.Toggle"
+                                      Theme="dark"
+                                      MinHeight="300" />
+            </RadzenCard>
+        </div>
+    </RadzenBody>
+</RadzenLayout>
+
+@code {
+    private string _content = @"# Witaj w SimpleTextEditor!
+
+To jest **prosty edytor Markdown** z wieloma funkcjami:
+
+## Formatowanie tekstu
+
+- **Pogrubienie** - użyj `**tekst**`
+- *Kursywa* - użyj `*tekst*`
+- ~~Przekreślenie~~ - użyj `~~tekst~~`
+
+## Listy
+
+1. Numerowana lista
+2. Drugi element
+3. Trzeci element
+
+- Lista punktowana
+- Kolejny punkt
+- I jeszcze jeden
+
+## Tabele
+
+| Nagłówek 1 | Nagłówek 2 | Nagłówek 3 |
+|------------|------------|------------|
+| Komórka 1  | Komórka 2  | Komórka 3  |
+| Komórka 4  | Komórka 5  | Komórka 6  |
+
+## Kod
+
+Inline: `const x = 42;`
+
+Blok:
+```javascript
+function hello() {
+    console.log('Hello, World!');
+}
+```
+
+## Cytat
+
+> To jest cytat.
+> Może mieć wiele linii.
+
+---
+
+*Zacznij edytować powyższy tekst!*
+";
+
+    private string _darkContent = @"# Ciemny motyw
+
+Ten edytor używa **ciemnego motywu**.
+
+Kliknij przycisk 👁️ aby przełączyć między edytorem a podglądem.
+";
+}

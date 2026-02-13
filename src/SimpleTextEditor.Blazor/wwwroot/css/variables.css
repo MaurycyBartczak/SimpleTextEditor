@@ -1,0 +1,75 @@
+/* SimpleTextEditor - CSS Variables for easy customization */
+
+:root {
+    /* Colors - Light theme */
+    --ste-primary-color: #2196f3;
+    --ste-primary-hover: #1976d2;
+    --ste-text-color: #333333;
+    --ste-text-muted: #666666;
+    --ste-bg-color: #ffffff;
+    --ste-bg-secondary: #f5f5f5;
+    --ste-border-color: #e0e0e0;
+    --ste-border-radius: 8px;
+    
+    /* Toolbar */
+    --ste-toolbar-bg: #fafafa;
+    --ste-toolbar-border: #e0e0e0;
+    --ste-toolbar-button-size: 36px;
+    --ste-toolbar-button-color: #555555;
+    --ste-toolbar-button-hover-bg: #e8e8e8;
+    --ste-toolbar-button-active-bg: #d0d0d0;
+    --ste-toolbar-gap: 4px;
+    --ste-toolbar-padding: 8px;
+    
+    /* Editor */
+    --ste-editor-font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    --ste-editor-font-size: 14px;
+    --ste-editor-line-height: 1.6;
+    --ste-editor-padding: 16px;
+    --ste-editor-bg: #ffffff;
+    --ste-editor-text: #333333;
+    --ste-editor-placeholder: #999999;
+    
+    /* Preview */
+    --ste-preview-bg: #fafafa;
+    --ste-preview-text: #333333;
+    --ste-preview-padding: 16px;
+    --ste-preview-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --ste-preview-font-size: 15px;
+    --ste-preview-line-height: 1.8;
+    
+    /* Shadows */
+    --ste-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --ste-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    
+    /* Transitions */
+    --ste-transition-fast: 150ms ease;
+    --ste-transition-normal: 250ms ease;
+}
+
+/* Dark theme overrides */
+.ste-dark {
+    --ste-primary-color: #64b5f6;
+    --ste-primary-hover: #42a5f5;
+    --ste-text-color: #e0e0e0;
+    --ste-text-muted: #9e9e9e;
+    --ste-bg-color: #1e1e1e;
+    --ste-bg-secondary: #252525;
+    --ste-border-color: #404040;
+    
+    --ste-toolbar-bg: #2d2d2d;
+    --ste-toolbar-border: #404040;
+    --ste-toolbar-button-color: #b0b0b0;
+    --ste-toolbar-button-hover-bg: #3d3d3d;
+    --ste-toolbar-button-active-bg: #4d4d4d;
+    
+    --ste-editor-bg: #1e1e1e;
+    --ste-editor-text: #d4d4d4;
+    --ste-editor-placeholder: #666666;
+    
+    --ste-preview-bg: #252525;
+    --ste-preview-text: #d4d4d4;
+    
+    --ste-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --ste-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+}

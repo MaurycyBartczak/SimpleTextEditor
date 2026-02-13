@@ -1,0 +1,23 @@
+@namespace SimpleTextEditor.Radzen.Components
+
+<div class="ste-radzen-toolbar @Class">
+    @foreach (var item in Items)
+    {
+        @if (item.IsSeparator)
+        {
+            <div class="ste-toolbar-separator"></div>
+        }
+        else
+        {
+            <RadzenButton ButtonStyle="ButtonStyle.Light"
+                          Size="ButtonSize.Small"
+                          Variant="@(IsActive(item.Id) ? Variant.Filled : Variant.Text)"
+                          Click="@(() => OnItemClick(item))"
+                          Disabled="@IsDisabled(item.Id)"
+                          title="@GetTooltip(item)"
+                          class="@(IsActive(item.Id) ? "rz-button-active" : "")">
+                <span class="material-symbols-outlined">@GetIcon(item.Icon)</span>
+            </RadzenButton>
+        }
+    }
+</div>

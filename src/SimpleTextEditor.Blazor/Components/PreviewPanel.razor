@@ -1,0 +1,12 @@
+@namespace SimpleTextEditor.Blazor.Components
+
+<div class="ste-preview @Class">
+    @if (string.IsNullOrWhiteSpace(HtmlContent))
+    {
+        <div class="ste-preview-empty">@EmptyMessage</div>
+    }
+    else
+    {
+        @((MarkupString)HtmlContent)
+    }
+</div>

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/SimpleTextEditor.Demo/SimpleTextEditor.Demo.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/SimpleTextEditor.Blazor/SimpleTextEditor.Blazor.csproj" />
+    <Project Path="src/SimpleTextEditor.Core/SimpleTextEditor.Core.csproj" />
+    <Project Path="src/SimpleTextEditor.Radzen/SimpleTextEditor.Radzen.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SimpleTextEditor.Core.Tests/SimpleTextEditor.Core.Tests.csproj" />
+  </Folder>
+</Solution>

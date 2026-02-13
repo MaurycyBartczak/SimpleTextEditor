@@ -1,0 +1,255 @@
+/* SimpleTextEditor - Editor Styles */
+
+.ste-container {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ste-border-color);
+    border-radius: var(--ste-border-radius);
+    overflow: hidden;
+    background: var(--ste-bg-color);
+    box-shadow: var(--ste-shadow-sm);
+}
+
+.ste-container.ste-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    border-radius: 0;
+}
+
+.ste-main {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Side-by-side layout */
+.ste-main.ste-side-by-side {
+    flex-direction: row;
+}
+
+.ste-main.ste-side-by-side .ste-editor-wrapper,
+.ste-main.ste-side-by-side .ste-preview-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
+.ste-main.ste-side-by-side .ste-editor-wrapper {
+    border-right: 1px solid var(--ste-border-color);
+}
+
+/* Toggle layout */
+.ste-main.ste-toggle .ste-editor-wrapper,
+.ste-main.ste-toggle .ste-preview-wrapper {
+    flex: 1;
+}
+
+.ste-main.ste-toggle .ste-editor-wrapper.ste-hidden,
+.ste-main.ste-toggle .ste-preview-wrapper.ste-hidden {
+    display: none;
+}
+
+/* Editor wrapper */
+.ste-editor-wrapper {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Textarea */
+.ste-editor {
+    flex: 1;
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: var(--ste-editor-padding);
+    font-family: var(--ste-editor-font-family);
+    font-size: var(--ste-editor-font-size);
+    line-height: var(--ste-editor-line-height);
+    background: var(--ste-editor-bg);
+    color: var(--ste-editor-text);
+    transition: background-color var(--ste-transition-normal);
+}
+
+.ste-editor::placeholder {
+    color: var(--ste-editor-placeholder);
+}
+
+.ste-editor:focus {
+    outline: none;
+}
+
+/* Preview wrapper */
+.ste-preview-wrapper {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.ste-preview-header {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ste-text-muted);
+    background: var(--ste-bg-secondary);
+    border-bottom: 1px solid var(--ste-border-color);
+}
+
+/* Preview content */
+.ste-preview {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--ste-preview-padding);
+    font-family: var(--ste-preview-font-family);
+    font-size: var(--ste-preview-font-size);
+    line-height: var(--ste-preview-line-height);
+    background: var(--ste-preview-bg);
+    color: var(--ste-preview-text);
+}
+
+.ste-preview-empty {
+    color: var(--ste-text-muted);
+    font-style: italic;
+}
+
+/* Preview markdown styles */
+.ste-preview h1,
+.ste-preview h2,
+.ste-preview h3,
+.ste-preview h4,
+.ste-preview h5,
+.ste-preview h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.ste-preview h1 {
+    font-size: 2em;
+}
+
+.ste-preview h2 {
+    font-size: 1.5em;
+}
+
+.ste-preview h3 {
+    font-size: 1.25em;
+}
+
+.ste-preview h4 {
+    font-size: 1.1em;
+}
+
+.ste-preview p {
+    margin: 0 0 1em 0;
+}
+
+.ste-preview ul,
+.ste-preview ol {
+    margin: 0 0 1em 0;
+    padding-left: 2em;
+}
+
+.ste-preview li {
+    margin-bottom: 0.25em;
+}
+
+.ste-preview blockquote {
+    margin: 0 0 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--ste-primary-color);
+    background: var(--ste-bg-secondary);
+    font-style: italic;
+}
+
+.ste-preview code {
+    padding: 0.2em 0.4em;
+    font-family: var(--ste-editor-font-family);
+    font-size: 0.9em;
+    background: var(--ste-bg-secondary);
+    border-radius: 4px;
+}
+
+.ste-preview pre {
+    margin: 0 0 1em 0;
+    padding: 1em;
+    overflow-x: auto;
+    background: var(--ste-bg-secondary);
+    border-radius: 4px;
+}
+
+.ste-preview pre code {
+    padding: 0;
+    background: transparent;
+}
+
+.ste-preview table {
+    width: 100%;
+    margin: 0 0 1em 0;
+    border-collapse: collapse;
+}
+
+.ste-preview th,
+.ste-preview td {
+    padding: 0.5em 1em;
+    border: 1px solid var(--ste-border-color);
+    text-align: left;
+}
+
+.ste-preview th {
+    background: var(--ste-bg-secondary);
+    font-weight: 600;
+}
+
+.ste-preview img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+.ste-preview a {
+    color: var(--ste-primary-color);
+    text-decoration: none;
+}
+
+.ste-preview a:hover {
+    text-decoration: underline;
+}
+
+.ste-preview hr {
+    margin: 2em 0;
+    border: none;
+    border-top: 2px solid var(--ste-border-color);
+}
+
+/* Text alignment classes (for Markdig GenericAttributes) */
+.ste-preview .text-left,
+.ste-preview p.text-left,
+.ste-preview h1.text-left,
+.ste-preview h2.text-left,
+.ste-preview h3.text-left {
+    text-align: left;
+}
+
+.ste-preview .text-center,
+.ste-preview p.text-center,
+.ste-preview h1.text-center,
+.ste-preview h2.text-center,
+.ste-preview h3.text-center {
+    text-align: center;
+}
+
+.ste-preview .text-right,
+.ste-preview p.text-right,
+.ste-preview h1.text-right,
+.ste-preview h2.text-right,
+.ste-preview h3.text-right {
+    text-align: right;
+}
