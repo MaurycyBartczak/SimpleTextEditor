@@ -13,6 +13,17 @@ Generyczny, konfigurowalny edytor Markdown dla aplikacji Blazor. Dystrybuowany j
 - 👁️ Podgląd na żywo (obok siebie lub tryb przełączania)
 - ⚡ Łatwa integracja z dowolną bazą danych (zwraca czyste ciągi Markdown/HTML)
 
+## Zrzuty ekranu
+
+### Jasny motyw — WYSIWYG z podglądem obok siebie
+![Edytor WYSIWYG - jasny motyw](img1.png)
+
+### Renderowanie kodu i cytatów
+![Kod i cytaty](img2.png)
+
+### Ciemny motyw z przełączanym podglądem
+![Ciemny motyw](img3.png)
+
 ## Instalacja
 
 ```bash
