@@ -15,13 +15,13 @@ Generyczny, konfigurowalny edytor Markdown dla aplikacji Blazor. Dystrybuowany j
 
 ## Zrzuty ekranu
 
-### Jasny motyw — WYSIWYG z podglądem obok siebie
+### Jasny motyw — WYSIWYG
 ![Edytor WYSIWYG - jasny motyw](img1.png)
 
 ### Renderowanie kodu i cytatów
 ![Kod i cytaty](img2.png)
 
-### Ciemny motyw z przełączanym podglądem
+### Ciemny motyw
 ![Ciemny motyw](img3.png)
 
 ## Instalacja
