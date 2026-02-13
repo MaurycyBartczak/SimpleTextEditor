@@ -1,5 +1,16 @@
 @namespace SimpleTextEditor.Radzen.Components
 
+<HeadContent>
+    @((MarkupString)IconProviderInstance.GetIconFontLink())
+    <link href="_content/SimpleTextEditor.Blazor/css/variables.css" rel="stylesheet" />
+    <link href="_content/SimpleTextEditor.Blazor/css/toolbar.css" rel="stylesheet" />
+    <link href="_content/SimpleTextEditor.Blazor/css/editor.css" rel="stylesheet" />
+    <link href="_content/SimpleTextEditor.Blazor/css/wysiwyg.css" rel="stylesheet" />
+    <link href="_content/SimpleTextEditor.Blazor/css/themes/light.css" rel="stylesheet" />
+    <link href="_content/SimpleTextEditor.Blazor/css/themes/dark.css" rel="stylesheet" />
+    <link href="_content/SimpleTextEditor.Radzen/css/radzen-overrides.css" rel="stylesheet" />
+</HeadContent>
+
 <RadzenCard class="@ContainerClass">
     @* Toolbar *@
     <RadzenToolbar Items="@ToolbarItemsList"
