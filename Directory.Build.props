@@ -9,7 +9,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Version>1.0.2</Version>
+    <Version>1.1.0</Version>
     <RepositoryUrl>https://github.com/MaurycyBartczak/SimpleTextEditor</RepositoryUrl>
     <PackageTags>blazor;markdown;editor;wysiwyg;radzen;text-editor</PackageTags>
     <PackageProjectUrl>https://github.com/MaurycyBartczak/SimpleTextEditor</PackageProjectUrl>
