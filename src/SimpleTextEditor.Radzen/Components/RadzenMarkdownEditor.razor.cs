@@ -26,8 +26,7 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     private ElementReference _textareaRef;
     private ElementReference _wysiwygRef;
     private InputFile? _imageInputRef;
-    private EditorJsInterop? _jsInterop;
-    private WysiwygJsInterop? _wysiwygJsInterop;
+    private SteJsInterop? _jsInterop;
     private string _internalValue = "";
     private bool _isFullscreen = false;
     private bool _showPreview = true;
@@ -36,6 +35,12 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     private readonly string _imageInputId = $"ste-image-input-{Guid.NewGuid():N}";
     private CancellationTokenSource? _debounceCts;
     private const int DebounceDelayMs = 300;
+    private DotNetObjectReference<RadzenMarkdownEditor>? _dotNetRef;
+    
+    // Stan popupu resize obrazka
+    private bool _showResizePopup = false;
+    private int _resizePopupWidth = 0;
+    private int _resizePopupHeight = 0;
     
     /// <summary>
     /// Wartość treści Markdown.
@@ -151,7 +156,7 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     
     private EditorMode CurrentMode => _currentMode;
     
-    // Czy wyświetlać panel podglądu (na podstawie trybu i stanu przełącznika)
+    // Czy wyświetlać panel podglądu
     private bool ShouldShowPreviewPanel => PreviewMode != PreviewMode.None && 
         (PreviewMode == PreviewMode.Toggle || _showPreview);
     
@@ -197,8 +202,7 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     {
         _internalValue = Value;
         _currentMode = Mode;
-        _jsInterop = new EditorJsInterop(JSRuntime);
-        _wysiwygJsInterop = new WysiwygJsInterop(JSRuntime);
+        _jsInterop = new SteJsInterop(JSRuntime);
     }
     
     /// <inheritdoc />
@@ -207,13 +211,83 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         if (firstRender)
         {
             _isInitialized = true;
-            if (_currentMode == EditorMode.Wysiwyg && _wysiwygJsInterop != null)
+            if (_currentMode == EditorMode.Wysiwyg && _jsInterop != null)
             {
                 // Ustawienie początkowej treści HTML w trybie WYSIWYG
                 var html = MarkdownParserInstance.ToHtml(_internalValue);
-                await _wysiwygJsInterop.SetHtmlAsync(_wysiwygRef, html);
+                await _jsInterop.SetHtmlAsync(_wysiwygRef, html);
+                
+                // Inicjalizacja modułu zmiany rozmiaru obrazów
+                await InitImageResize();
             }
         }
+    }
+    
+    private async Task InitImageResize()
+    {
+        if (_jsInterop == null) return;
+        _dotNetRef?.Dispose();
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await _jsInterop.InitImageResizeAsync(_wysiwygRef, _dotNetRef);
+    }
+    
+    /// <summary>
+    /// Callback wywoływany przez JS po zmianie rozmiaru obrazu (drag).
+    /// </summary>
+    [JSInvokable]
+    public async Task OnImageResized()
+    {
+        if (_jsInterop == null) return;
+        
+        var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
+        _internalValue = HtmlToMarkdownConverter.Convert(html);
+        await NotifyValueChanged();
+        StateHasChanged();
+    }
+    
+    /// <summary>
+    /// Callback wywoływany przez JS po podwójnym kliknięciu na obrazek — otwiera popup Blazor.
+    /// </summary>
+    [JSInvokable]
+    public void OnImageDblClick(int width, int height)
+    {
+        _resizePopupWidth = width;
+        _resizePopupHeight = height;
+        _showResizePopup = true;
+        StateHasChanged();
+    }
+    
+    /// <summary>
+    /// Callback wywoływany przez JS po odznaczeniu obrazka (Escape).
+    /// </summary>
+    [JSInvokable]
+    public void OnImageDeselected()
+    {
+        _showResizePopup = false;
+        StateHasChanged();
+    }
+    
+    /// <summary>
+    /// Obsługa zastosowania rozmiaru z popupu Blazor.
+    /// </summary>
+    private async Task HandleResizeApply((int Width, int Height) size)
+    {
+        if (_jsInterop == null) return;
+        await _jsInterop.SetSelectedImageSizeAsync(size.Width, size.Height);
+        _showResizePopup = false;
+        
+        // Zsynchronizuj HTML → Markdown
+        var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
+        _internalValue = HtmlToMarkdownConverter.Convert(html);
+        await NotifyValueChanged();
+    }
+    
+    /// <summary>
+    /// Obsługa zamknięcia popupu resize.
+    /// </summary>
+    private void HandleResizeClose()
+    {
+        _showResizePopup = false;
     }
     
     /// <inheritdoc />
@@ -233,8 +307,6 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     
     private Task HandleWysiwygInput()
     {
-        // Nie synchronizuj HTML do Markdown przy każdym naciśnięciu klawisza — powoduje problemy z SignalR przy dużej treści
-        // Treść zostanie zsynchronizowana podczas przełączania trybów lub na żądanie
         return Task.CompletedTask;
     }
     
@@ -281,21 +353,28 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
             {
                 // Przełączenie na WYSIWYG
                 _currentMode = EditorMode.Wysiwyg;
+                _showResizePopup = false;
                 StateHasChanged();
-                await Task.Delay(50); // Oczekiwanie na renderowanie
+                await Task.Delay(50);
                 
-                if (_wysiwygJsInterop != null)
+                if (_jsInterop != null)
                 {
                     var html = MarkdownParserInstance.ToHtml(_internalValue);
-                    await _wysiwygJsInterop.SetHtmlAsync(_wysiwygRef, html);
+                    await _jsInterop.SetHtmlAsync(_wysiwygRef, html);
+                    
+                    // Reinicjalizacja modułu resize
+                    await _jsInterop.DisposeImageResizeAsync();
+                    await InitImageResize();
                 }
             }
             else
             {
-                // Przełączenie na Markdown
-                if (_wysiwygJsInterop != null)
+                // Przełączenie na Markdown — zwolnij moduł resize
+                _showResizePopup = false;
+                if (_jsInterop != null)
                 {
-                    var html = await _wysiwygJsInterop.GetHtmlAsync(_wysiwygRef);
+                    await _jsInterop.DisposeImageResizeAsync();
+                    var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
                     _internalValue = HtmlToMarkdownConverter.Convert(html);
                     await NotifyValueChanged();
                 }
@@ -305,69 +384,68 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             Console.WriteLine($"Błąd przełączania trybu: {ex.Message}");
-            // Awaryjne przełączenie trybu bez konwersji
             _currentMode = _currentMode == EditorMode.Markdown ? EditorMode.Wysiwyg : EditorMode.Markdown;
         }
     }
     
     private async Task ExecuteWysiwygCommand(ToolbarItem item)
     {
-        if (_wysiwygJsInterop == null) return;
+        if (_jsInterop == null) return;
         
         try
         {
             switch (item.Id)
             {
                 case "bold":
-                    await _wysiwygJsInterop.ExecCommandAsync("bold");
+                    await _jsInterop.ExecCommandAsync("bold");
                     break;
                 case "italic":
-                    await _wysiwygJsInterop.ExecCommandAsync("italic");
+                    await _jsInterop.ExecCommandAsync("italic");
                     break;
                 case "strikethrough":
-                    await _wysiwygJsInterop.ExecCommandAsync("strikeThrough");
+                    await _jsInterop.ExecCommandAsync("strikeThrough");
                     break;
                 case "heading1":
-                    await _wysiwygJsInterop.FormatBlockAsync("h1");
+                    await _jsInterop.FormatBlockAsync("h1");
                     break;
                 case "heading2":
-                    await _wysiwygJsInterop.FormatBlockAsync("h2");
+                    await _jsInterop.FormatBlockAsync("h2");
                     break;
                 case "heading3":
-                    await _wysiwygJsInterop.FormatBlockAsync("h3");
+                    await _jsInterop.FormatBlockAsync("h3");
                     break;
                 case "bulletList":
-                    await _wysiwygJsInterop.InsertUnorderedListAsync();
+                    await _jsInterop.InsertUnorderedListAsync();
                     break;
                 case "numberedList":
-                    await _wysiwygJsInterop.InsertOrderedListAsync();
+                    await _jsInterop.InsertOrderedListAsync();
                     break;
                 case "quote":
-                    await _wysiwygJsInterop.IndentAsync();
+                    await _jsInterop.IndentAsync();
                     break;
                 case "alignLeft":
-                    await _wysiwygJsInterop.AlignTextAsync("left");
+                    await _jsInterop.AlignTextAsync("left");
                     break;
                 case "alignCenter":
-                    await _wysiwygJsInterop.AlignTextAsync("center");
+                    await _jsInterop.AlignTextAsync("center");
                     break;
                 case "alignRight":
-                    await _wysiwygJsInterop.AlignTextAsync("right");
+                    await _jsInterop.AlignTextAsync("right");
                     break;
                 case "link":
-                    await _wysiwygJsInterop.CreateLinkAsync("https://");
+                    await _jsInterop.CreateLinkAsync("https://");
                     break;
                 case "image":
-                    await _wysiwygJsInterop.InsertImageAsync("https://via.placeholder.com/150");
+                    await _jsInterop.InsertImageAsync("https://via.placeholder.com/150");
                     break;
                 case "code":
-                    await _wysiwygJsInterop.InsertHtmlAsync("<code>code</code>");
+                    await _jsInterop.InsertHtmlAsync("<code>code</code>");
                     break;
                 case "codeBlock":
-                    await _wysiwygJsInterop.InsertHtmlAsync("<pre><code>// code here</code></pre>");
+                    await _jsInterop.InsertHtmlAsync("<pre><code>// code here</code></pre>");
                     break;
                 case "table":
-                    await _wysiwygJsInterop.InsertHtmlAsync(
+                    await _jsInterop.InsertHtmlAsync(
                         @"<table>
                             <thead>
                                 <tr><th>Header 1</th><th>Header 2</th><th>Header 3</th></tr>
@@ -379,13 +457,12 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
                         </table>");
                     break;
                 case "horizontalRule":
-                    await _wysiwygJsInterop.InsertHorizontalRuleAsync();
+                    await _jsInterop.InsertHorizontalRuleAsync();
                     break;
                 default:
                     break;
             }
             
-            // Zaktualizuj wartość Markdown po wykonaniu polecenia
             await HandleWysiwygInput();
         }
         catch (Exception ex)
@@ -449,14 +526,12 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         
         var handler = ImageUploadHandlerInstance;
         
-        // Walidacja typu zawartości
         if (!handler.AllowedContentTypes.Contains(file.ContentType))
         {
             Console.WriteLine($"Nieobsługiwany typ pliku: {file.ContentType}");
             return;
         }
         
-        // Walidacja rozmiaru pliku
         var maxSize = handler.MaxFileSizeBytes > 0 ? handler.MaxFileSizeBytes : 10 * 1024 * 1024;
         if (file.Size > maxSize)
         {
@@ -466,16 +541,12 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         
         try
         {
-            // Odczyt zawartości pliku
             using var stream = file.OpenReadStream(maxAllowedSize: maxSize);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             var content = ms.ToArray();
             
-            // Upload i pobranie URL
             var url = await handler.UploadAsync(file.Name, content, file.ContentType);
-            
-            // Wstawienie obrazu do edytora
             await InsertImageUrl(url);
         }
         catch (Exception ex)
@@ -488,15 +559,14 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     {
         if (_currentMode == EditorMode.Wysiwyg)
         {
-            if (_wysiwygJsInterop != null)
+            if (_jsInterop != null)
             {
-                await _wysiwygJsInterop.InsertImageAsync(url);
+                await _jsInterop.InsertImageAsync(url);
                 await HandleWysiwygInput();
             }
         }
         else
         {
-            // Tryb Markdown — wstawianie składni obrazu Markdown
             if (_jsInterop != null)
             {
                 var newValue = await _jsInterop.InsertTextAsync(
@@ -505,7 +575,6 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
                     ")",
                     false);
                 
-                // Wstawienie URL w środku
                 _internalValue = newValue.Replace("![image]()", $"![image]({url})");
                 await NotifyValueChanged();
             }
@@ -517,24 +586,13 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     {
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
+        _dotNetRef?.Dispose();
         
         if (_jsInterop != null)
         {
             try
             {
                 await _jsInterop.DisposeAsync();
-            }
-            catch (JSDisconnectedException)
-            {
-                // Ignoruj — obwód już rozłączony
-            }
-        }
-        
-        if (_wysiwygJsInterop != null)
-        {
-            try
-            {
-                await _wysiwygJsInterop.DisposeAsync();
             }
             catch (JSDisconnectedException)
             {

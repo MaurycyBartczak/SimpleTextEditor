@@ -24,7 +24,7 @@ public partial class EditorBase : ComponentBase, IAsyncDisposable
     
     private ElementReference _containerRef;
     private ElementReference _textareaRef;
-    private EditorJsInterop? _jsInterop;
+    private SteJsInterop? _jsInterop;
     private string _internalValue = "";
     private bool _isFullscreen = false;
     private bool _showPreview = true;
@@ -161,7 +161,7 @@ public partial class EditorBase : ComponentBase, IAsyncDisposable
     protected override void OnInitialized()
     {
         _internalValue = Value;
-        _jsInterop = new EditorJsInterop(JSRuntime);
+        _jsInterop = new SteJsInterop(JSRuntime);
     }
     
     /// <inheritdoc />
@@ -195,7 +195,7 @@ public partial class EditorBase : ComponentBase, IAsyncDisposable
                 ShowPreview = !ShowPreview;
                 break;
             case "fullscreen":
-                await ToggleFullscreen();
+                ToggleFullscreen();
                 break;
             default:
                 await InsertMarkdown(item);
@@ -219,13 +219,9 @@ public partial class EditorBase : ComponentBase, IAsyncDisposable
         await NotifyValueChanged();
     }
     
-    private async Task ToggleFullscreen()
+    private void ToggleFullscreen()
     {
         _isFullscreen = !_isFullscreen;
-        if (_jsInterop != null)
-        {
-            await _jsInterop.ToggleFullscreenAsync(_containerRef, _isFullscreen);
-        }
     }
     
     private bool IsToolbarItemActive(string itemId)

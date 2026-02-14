@@ -22,7 +22,9 @@ Biblioteka komponentów Blazor do edycji tekstu w formacie Markdown z trybem WYS
    - [PreviewMode](#previewmode)
    - [ToolbarItem](#toolbaritem)
    - [ToolbarItems (predefiniowane)](#toolbaritems-predefiniowane)
-6. [Przykłady użycia](#przykłady-użycia)
+6. [Architektura JavaScript](#architektura-javascript)
+7. [Zmiana rozmiaru obrazów](#zmiana-rozmiaru-obrazów)
+8. [Przykłady użycia](#przykłady-użycia)
 
 ---
 
@@ -1204,6 +1206,95 @@ private static readonly ToolbarItem CustomEmojiButton = new()
     MarkdownBefore = "😀"
 };
 ```
+
+---
+
+## Architektura JavaScript
+
+Edytor wymaga minimalnej ilości JavaScript do operacji na DOM, których Blazor nie obsługuje natywnie (kursor w textarea, `document.execCommand`, drag resize obrazków).
+
+### Struktura plików
+
+| Plik | Opis |
+|------|------|
+| `wwwroot/js/ste-interop.js` | Zunifikowany moduł ES — jedyny plik JS w projekcie |
+| `Services/SteJsInterop.cs` | C# wrapper — jedyny plik interop C# |
+
+### Moduł `ste-interop.js`
+
+Podzielony na 3 sekcje:
+
+1. **Operacje textarea** (tryb Markdown) — `getSelection`, `setSelection`, `insertText`, `getCurrentLine`, `syncScroll`
+2. **Operacje WYSIWYG** (contenteditable) — `execCommand`, `getHtml`, `setHtml`, `insertHtml`, `alignText`, `formatBlock`, itd.
+3. **Resize obrazków** — `initImageResize`, `disposeImageResize`, `setSelectedImageSize`, `deselectImage`
+
+Moduł jest ładowany automatycznie przez `SteJsInterop` przy użyciu dynamicznego `import()`. **Nie trzeba dodawać `<script>` tagu** — wystarczy referencja na CSS.
+
+### `SteJsInterop.cs`
+
+```csharp
+// Tworzenie instancji (w OnInitialized)
+private SteJsInterop? _jsInterop;
+_jsInterop = new SteJsInterop(JSRuntime);
+
+// Użycie (w OnAfterRenderAsync lub handlerach)
+await _jsInterop.ExecCommandAsync("bold");
+await _jsInterop.InsertTextAsync(textarea, "**", "**", false);
+await _jsInterop.InitImageResizeAsync(wysiwygRef, dotNetRef);
+
+// Dispose (w DisposeAsync)
+await _jsInterop.DisposeAsync();
+```
+
+---
+
+## Zmiana rozmiaru obrazów
+
+W trybie WYSIWYG obrazy można interaktywnie zmieniać rozmiar na dwa sposoby:
+
+### Drag resize (przeciąganie za rogi)
+
+1. Kliknij obraz → pojawi się niebieska ramka z uchwytami na rogach i etykietą rozmiaru
+2. Przeciągnij dowolny uchwyt → obraz zmienia rozmiar z zachowaniem proporcji
+3. Przytrzymaj **Shift** podczas przeciągania → zmiana rozmiaru bez zachowania proporcji
+4. Naciśnij **Escape** → odznacz obraz
+5. Naciśnij **Delete** / **Backspace** → usuń zaznaczony obraz
+
+### Popup z wymiarami
+
+1. **Podwójne kliknięcie** na obraz → otwiera popup z polami Szerokość/Wysokość
+2. Lub kliknij **etykietę rozmiaru** (np. "640 × 480") pod obrazem
+3. Wpisz dokładne wymiary → kliknij "Zastosuj"
+4. Checkbox "Zachowaj proporcje" automatycznie przelicza drugi wymiar
+
+### Komponent `ImageResizePopup`
+
+Popup jest komponentem Blazor (`ImageResizePopup.razor`) — nie wymaga dodatkowej konfiguracji. Jest automatycznie renderowany w `RadzenMarkdownEditor` w trybie WYSIWYG.
+
+### Inicjalizacja resize
+
+Resize jest automatycznie inicjalizowany w `OnAfterRenderAsync` i reinicjalizowany przy każdym przełączeniu trybu WYSIWYG ↔ Markdown.
+
+```csharp
+// Wewnętrznie w RadzenMarkdownEditor:
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender && _currentMode == EditorMode.Wysiwyg)
+    {
+        await _jsInterop.SetHtmlAsync(_wysiwygRef, html);
+        await InitImageResize(); // Automatyczna inicjalizacja
+    }
+}
+```
+
+### Stylizacja
+
+Style dla resize znajdują się w `wwwroot/css/wysiwyg.css` — klasy:
+- `.ste-img-selected` — niebieska ramka zaznaczonego obrazu
+- `.ste-img-overlay` — kontener uchwytów
+- `.ste-img-handle` / `.ste-img-handle-nw/ne/sw/se` — uchwyty na rogach
+- `.ste-img-size-label` — etykieta rozmiaru pod obrazem
+- `.ste-img-resize-popup` — popup z wymiarami
 
 ---
 

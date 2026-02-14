@@ -1,0 +1,84 @@
+@namespace SimpleTextEditor.Blazor.Components
+
+@if (IsVisible)
+{
+    <div class="ste-img-resize-popup" style="@PopupStyle" @onclick:stopPropagation="true">
+        <div class="ste-img-popup-title">Rozmiar obrazu</div>
+        <div class="ste-img-popup-row">
+            <label>Szerokość</label>
+            <input type="number" class="ste-img-popup-input" 
+                   @bind="Width" @bind:event="oninput" 
+                   @bind:after="OnWidthChanged"
+                   min="10" />
+            <span>px</span>
+        </div>
+        <div class="ste-img-popup-row">
+            <label>Wysokość</label>
+            <input type="number" class="ste-img-popup-input" 
+                   @bind="Height" @bind:event="oninput"
+                   @bind:after="OnHeightChanged"
+                   min="10" />
+            <span>px</span>
+        </div>
+        <div class="ste-img-popup-row">
+            <label>
+                <input type="checkbox" @bind="LockAspectRatio" /> Zachowaj proporcje
+            </label>
+        </div>
+        <div class="ste-img-popup-actions">
+            <button class="ste-img-popup-btn ste-img-popup-btn-apply" @onclick="OnApply">Zastosuj</button>
+            <button class="ste-img-popup-btn ste-img-popup-btn-cancel" @onclick="OnCancel">Anuluj</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public int InitialWidth { get; set; }
+    [Parameter] public int InitialHeight { get; set; }
+    [Parameter] public EventCallback<(int Width, int Height)> OnApplySize { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private int Width { get; set; }
+    private int Height { get; set; }
+    private bool LockAspectRatio { get; set; } = true;
+    private double _aspectRatio = 1;
+
+    private string PopupStyle => "position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000;";
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible && (Width == 0 || Width != InitialWidth))
+        {
+            Width = InitialWidth;
+            Height = InitialHeight;
+            _aspectRatio = InitialHeight > 0 ? (double)InitialWidth / InitialHeight : 1;
+        }
+    }
+
+    private void OnWidthChanged()
+    {
+        if (LockAspectRatio && _aspectRatio > 0)
+        {
+            Height = (int)Math.Round(Width / _aspectRatio);
+        }
+    }
+
+    private void OnHeightChanged()
+    {
+        if (LockAspectRatio && _aspectRatio > 0)
+        {
+            Width = (int)Math.Round(Height * _aspectRatio);
+        }
+    }
+
+    private async Task OnApply()
+    {
+        await OnApplySize.InvokeAsync((Width, Height));
+    }
+
+    private async Task OnCancel()
+    {
+        await OnClose.InvokeAsync();
+    }
+}

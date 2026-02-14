@@ -47,6 +47,11 @@
                      style="@EditorStyle"
                      @oninput="HandleWysiwygInput">
                 </div>
+                <ImageResizePopup IsVisible="@_showResizePopup"
+                                  InitialWidth="@_resizePopupWidth"
+                                  InitialHeight="@_resizePopupHeight"
+                                  OnApplySize="@HandleResizeApply"
+                                  OnClose="@HandleResizeClose" />
             </div>
         }
         
