@@ -35,7 +35,7 @@ dotnet add package SimpleTextEditor.Radzen
 ### 1. Zarejestruj usługi w `Program.cs`
 
 ```csharp
-using SimpleTextEditor.Radzen;
+using SimpleTextEditor.Radzen.Extensions;
 
 builder.Services.AddRadzenMarkdownEditor();
 ```

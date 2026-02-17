@@ -145,6 +145,12 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     [Parameter]
     public IImageUploadHandler? ImageUploadHandler { get; set; }
     
+    /// <summary>
+    /// Niestandardowy konwerter HTML do Markdown. Jeśli null, używa domyślnego.
+    /// </summary>
+    [Parameter]
+    public IHtmlToMarkdownConverter? HtmlToMarkdownConverter { get; set; }
+    
     // Rozwiązane instancje z wartościami domyślnymi
     private IImageUploadHandler ImageUploadHandlerInstance => ImageUploadHandler ?? new Base64ImageUploadHandler();
     private IIconProvider IconProviderInstance => IconProvider ?? new MaterialIconProvider();
@@ -152,7 +158,7 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     private IMarkdownParser MarkdownParserInstance => MarkdownParser ?? new MarkdownService();
     private IEditorTheme ThemeInstance => EditorTheme ?? (Theme == "dark" ? new DarkTheme() : new LightTheme());
     private IReadOnlyList<ToolbarItem> ToolbarItemsList => ToolbarItems ?? Core.Models.ToolbarItems.Default;
-    private IHtmlToMarkdownConverter HtmlToMarkdownConverter => new HtmlToMarkdownConverter();
+    private IHtmlToMarkdownConverter HtmlToMarkdownConverterInstance => HtmlToMarkdownConverter ?? new HtmlToMarkdownConverter();
     
     private EditorMode CurrentMode => _currentMode;
     
@@ -187,6 +193,16 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     
     private string EditorStyle => $"min-height: {MinHeight}px; {(MaxHeight > 0 ? $"max-height: {MaxHeight}px;" : "")}";
     
+    private int WordCount => string.IsNullOrWhiteSpace(_internalValue) 
+        ? 0 
+        : _internalValue.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+    
+    private int CharacterCount => _internalValue.Length;
+    
+    private int LineCount => string.IsNullOrEmpty(_internalValue) 
+        ? 1 
+        : _internalValue.Split('\n').Length;
+    
     private string GetToolbarClass() => ThemeInstance.ToolbarClass;
     
     // Ukryj edytor gdy w trybie przełączania i wyświetlany jest podgląd
@@ -219,6 +235,12 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
                 
                 // Inicjalizacja modułu zmiany rozmiaru obrazów
                 await InitImageResize();
+                
+                // Inicjalizacja skrótów klawiaturowych
+                await _jsInterop.InitKeyboardShortcutsAsync(_wysiwygRef);
+                
+                // Inicjalizacja drag & drop / paste obrazków
+                await _jsInterop.InitImageDragDropAsync(_wysiwygRef, _dotNetRef!);
             }
         }
     }
@@ -240,7 +262,7 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         if (_jsInterop == null) return;
         
         var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
-        _internalValue = HtmlToMarkdownConverter.Convert(html);
+        _internalValue = HtmlToMarkdownConverterInstance.Convert(html);
         await NotifyValueChanged();
         StateHasChanged();
     }
@@ -278,7 +300,7 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         
         // Zsynchronizuj HTML → Markdown
         var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
-        _internalValue = HtmlToMarkdownConverter.Convert(html);
+        _internalValue = HtmlToMarkdownConverterInstance.Convert(html);
         await NotifyValueChanged();
     }
     
@@ -305,9 +327,27 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         await OnChange.InvokeAsync(_internalValue);
     }
     
-    private Task HandleWysiwygInput()
+    private async Task HandleWysiwygInput()
     {
-        return Task.CompletedTask;
+        // Debounce: poczekaj DebounceDelayMs, potem zsynchronizuj HTML → Markdown
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+        
+        try
+        {
+            await Task.Delay(DebounceDelayMs, token);
+            if (token.IsCancellationRequested || _jsInterop == null) return;
+            
+            var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
+            _internalValue = HtmlToMarkdownConverterInstance.Convert(html);
+            await NotifyValueChanged();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignoruj — nowy input anulował poprzedni debounce
+        }
     }
     
     private async Task HandleToolbarClick(ToolbarItem item)
@@ -362,9 +402,13 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
                     var html = MarkdownParserInstance.ToHtml(_internalValue);
                     await _jsInterop.SetHtmlAsync(_wysiwygRef, html);
                     
-                    // Reinicjalizacja modułu resize
+                    // Reinicjalizacja modułów JS
                     await _jsInterop.DisposeImageResizeAsync();
+                    await _jsInterop.DisposeKeyboardShortcutsAsync();
+                    await _jsInterop.DisposeImageDragDropAsync();
                     await InitImageResize();
+                    await _jsInterop.InitKeyboardShortcutsAsync(_wysiwygRef);
+                    await _jsInterop.InitImageDragDropAsync(_wysiwygRef, _dotNetRef!);
                 }
             }
             else
@@ -374,8 +418,10 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
                 if (_jsInterop != null)
                 {
                     await _jsInterop.DisposeImageResizeAsync();
+                    await _jsInterop.DisposeKeyboardShortcutsAsync();
+                    await _jsInterop.DisposeImageDragDropAsync();
                     var html = await _jsInterop.GetHtmlAsync(_wysiwygRef);
-                    _internalValue = HtmlToMarkdownConverter.Convert(html);
+                    _internalValue = HtmlToMarkdownConverterInstance.Convert(html);
                     await NotifyValueChanged();
                 }
                 _currentMode = EditorMode.Markdown;
@@ -552,6 +598,38 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             Console.WriteLine($"Błąd uploadu obrazu: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// Callback wywoływany przez JS po upuszczeniu lub wklejeniu obrazka.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnImageDropped(string fileName, string base64, string contentType)
+    {
+        var handler = ImageUploadHandlerInstance;
+        
+        if (!handler.AllowedContentTypes.Contains(contentType))
+        {
+            return;
+        }
+        
+        try
+        {
+            var content = Convert.FromBase64String(base64);
+            
+            var maxSize = handler.MaxFileSizeBytes > 0 ? handler.MaxFileSizeBytes : 10 * 1024 * 1024;
+            if (content.Length > maxSize)
+            {
+                return;
+            }
+            
+            var url = await handler.UploadAsync(fileName, content, contentType);
+            await InsertImageUrl(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Błąd uploadu obrazu (drag/paste): {ex.Message}");
         }
     }
     

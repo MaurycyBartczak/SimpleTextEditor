@@ -168,6 +168,74 @@ public class SteJsInterop : IAsyncDisposable
         await module.InvokeVoidAsync("indent");
     }
 
+    public async ValueTask OutdentAsync()
+    {
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("outdent");
+    }
+
+    // ============================================================
+    // Sekcja 2b: Skróty klawiaturowe WYSIWYG
+    // ============================================================
+
+    /// <summary>
+    /// Inicjalizuje skróty klawiaturowe (Ctrl+B/I/U/K/Z/Y) na kontenerze contenteditable.
+    /// </summary>
+    public async ValueTask InitKeyboardShortcutsAsync(ElementReference container)
+    {
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("initKeyboardShortcuts", container);
+    }
+
+    /// <summary>
+    /// Zwalnia listenery skrótów klawiaturowych.
+    /// </summary>
+    public async ValueTask DisposeKeyboardShortcutsAsync()
+    {
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("disposeKeyboardShortcuts");
+            }
+            catch (JSDisconnectedException)
+            {
+                // Obwód już rozłączony
+            }
+        }
+    }
+
+    // ============================================================
+    // Sekcja 2c: Drag & drop i wklejanie obrazków
+    // ============================================================
+
+    /// <summary>
+    /// Inicjalizuje obsługę drag & drop i wklejania obrazków ze schowka.
+    /// </summary>
+    public async ValueTask InitImageDragDropAsync<T>(ElementReference container, DotNetObjectReference<T> dotNetRef) where T : class
+    {
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("initImageDragDrop", container, dotNetRef);
+    }
+
+    /// <summary>
+    /// Zwalnia listenery drag & drop i paste.
+    /// </summary>
+    public async ValueTask DisposeImageDragDropAsync()
+    {
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("disposeImageDragDrop");
+            }
+            catch (JSDisconnectedException)
+            {
+                // Obwód już rozłączony
+            }
+        }
+    }
+
     // ============================================================
     // Sekcja 3: Resize obrazków
     // ============================================================
@@ -226,6 +294,8 @@ public class SteJsInterop : IAsyncDisposable
         if (_isDisposed) return;
         _isDisposed = true;
 
+        await DisposeKeyboardShortcutsAsync();
+        await DisposeImageDragDropAsync();
         await DisposeImageResizeAsync();
 
         if (_module is not null)

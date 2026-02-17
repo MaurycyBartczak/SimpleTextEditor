@@ -171,6 +171,171 @@ export function outdent() {
 }
 
 // ============================================================
+// SEKCJA 2b: Skróty klawiaturowe WYSIWYG (contenteditable)
+// ============================================================
+
+let _shortcutsContainer = null;
+
+function _onWysiwygKeyDown(e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+
+    const key = e.key.toLowerCase();
+    let handled = true;
+
+    switch (key) {
+        case 'b':
+            document.execCommand('bold', false, null);
+            break;
+        case 'i':
+            document.execCommand('italic', false, null);
+            break;
+        case 'u':
+            document.execCommand('underline', false, null);
+            break;
+        case 'k': {
+            e.preventDefault();
+            const url = prompt('Podaj URL linku:');
+            if (url) {
+                document.execCommand('createLink', false, url);
+            }
+            handled = true;
+            break;
+        }
+        case 'z':
+            document.execCommand('undo', false, null);
+            break;
+        case 'y':
+            document.execCommand('redo', false, null);
+            break;
+        default:
+            handled = false;
+    }
+
+    if (handled) {
+        e.preventDefault();
+    }
+}
+
+/**
+ * Inicjalizuje skróty klawiaturowe na kontenerze contenteditable
+ */
+export function initKeyboardShortcuts(container) {
+    _shortcutsContainer = container;
+    container.addEventListener('keydown', _onWysiwygKeyDown);
+}
+
+/**
+ * Zwalnia listenery skrótów klawiaturowych
+ */
+export function disposeKeyboardShortcuts() {
+    if (_shortcutsContainer) {
+        _shortcutsContainer.removeEventListener('keydown', _onWysiwygKeyDown);
+        _shortcutsContainer = null;
+    }
+}
+
+// ============================================================
+// SEKCJA 2c: Drag & drop i wklejanie obrazków
+// ============================================================
+
+let _dndState = {
+    container: null,
+    dotNetRef: null
+};
+
+function _readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Usuń prefix "data:image/...;base64,"
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function _handleImageFiles(files) {
+    if (!_dndState.dotNetRef) return;
+
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        try {
+            const base64 = await _readFileAsBase64(file);
+            await _dndState.dotNetRef.invokeMethodAsync(
+                'OnImageDropped', file.name, base64, file.type
+            );
+        } catch (err) {
+            // Ignoruj błędy odczytu pliku
+        }
+    }
+}
+
+function _onDrop(e) {
+    if (!_dndState.container) return;
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    const hasImages = Array.from(files).some(f => f.type.startsWith('image/'));
+    if (!hasImages) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    _handleImageFiles(files);
+}
+
+function _onDragOver(e) {
+    // Wymagane, żeby drop działał
+    if (e.dataTransfer?.types?.includes('Files')) {
+        e.preventDefault();
+    }
+}
+
+function _onPaste(e) {
+    if (!_dndState.container) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles = [];
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+        }
+    }
+
+    if (imageFiles.length > 0) {
+        e.preventDefault();
+        _handleImageFiles(imageFiles);
+    }
+}
+
+/**
+ * Inicjalizuje obsługę drag & drop i wklejania obrazków
+ */
+export function initImageDragDrop(container, dotNetRef) {
+    _dndState.container = container;
+    _dndState.dotNetRef = dotNetRef;
+    container.addEventListener('drop', _onDrop);
+    container.addEventListener('dragover', _onDragOver);
+    container.addEventListener('paste', _onPaste);
+}
+
+/**
+ * Zwalnia listenery drag & drop / paste
+ */
+export function disposeImageDragDrop() {
+    if (_dndState.container) {
+        _dndState.container.removeEventListener('drop', _onDrop);
+        _dndState.container.removeEventListener('dragover', _onDragOver);
+        _dndState.container.removeEventListener('paste', _onPaste);
+        _dndState.container = null;
+        _dndState.dotNetRef = null;
+    }
+}
+
+// ============================================================
 // SEKCJA 3: Resize obrazków (tylko drag — popup w Blazor)
 // ============================================================
 

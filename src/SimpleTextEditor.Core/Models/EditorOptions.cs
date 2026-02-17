@@ -68,11 +68,6 @@ public class EditorOptions
     public int MaxHeight { get; set; } = 0;
     
     /// <summary>
-    /// Jeśli true, wyświetla numery linii w edytorze.
-    /// </summary>
-    public bool ShowLineNumbers { get; set; } = false;
-    
-    /// <summary>
     /// Jeśli true, edytor jest tylko do odczytu.
     /// </summary>
     public bool ReadOnly { get; set; } = false;

@@ -56,7 +56,12 @@ public class DefaultLocalizationProvider : ILocalizationProvider
                 ["placeholder"] = "Start typing...",
                 ["previewTitle"] = "Preview",
                 ["editorTitle"] = "Editor",
-                ["noPreview"] = "Nothing to preview"
+                ["noPreview"] = "Nothing to preview",
+                
+                // Pasek statusu
+                ["words"] = "Words",
+                ["characters"] = "Characters",
+                ["lines"] = "Lines"
             },
             ["pl"] = new()
             {
@@ -99,7 +104,12 @@ public class DefaultLocalizationProvider : ILocalizationProvider
                 ["placeholder"] = "Zacznij pisać...",
                 ["previewTitle"] = "Podgląd",
                 ["editorTitle"] = "Edytor",
-                ["noPreview"] = "Brak podglądu"
+                ["noPreview"] = "Brak podglądu",
+                
+                // Pasek statusu
+                ["words"] = "Słowa",
+                ["characters"] = "Znaki",
+                ["lines"] = "Linie"
             }
         };
     }

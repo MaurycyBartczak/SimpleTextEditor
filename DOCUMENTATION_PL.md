@@ -24,7 +24,10 @@ Biblioteka komponentów Blazor do edycji tekstu w formacie Markdown z trybem WYS
    - [ToolbarItems (predefiniowane)](#toolbaritems-predefiniowane)
 6. [Architektura JavaScript](#architektura-javascript)
 7. [Zmiana rozmiaru obrazów](#zmiana-rozmiaru-obrazów)
-8. [Przykłady użycia](#przykłady-użycia)
+8. [Pasek statusu](#pasek-statusu)
+9. [Skróty klawiaturowe WYSIWYG](#skróty-klawiaturowe-wysiwyg)
+10. [Drag & drop i wklejanie obrazków (WYSIWYG)](#drag--drop-i-wklejanie-obrazków-wysiwyg)
+11. [Przykłady użycia](#przykłady-użycia)
 
 ---
 
@@ -79,6 +82,7 @@ Główny komponent edytora z obsługą trybu WYSIWYG i Markdown.
 | `CssClass` | `string?` | `null` | **Dodatkowa klasa CSS dla kontenera edytora.** Pozwala na własne stylowanie, np. `"my-custom-editor border-primary"`. |
 | `ToolbarItems` | `IReadOnlyList<ToolbarItem>?` | `null` | **Własna konfiguracja paska narzędzi.** Gdy `null`, używa domyślnego zestawu (`ToolbarItems.Default`). Pozwala usunąć niechciane przyciski lub dodać własne. |
 | `ImageUploadHandler` | `IImageUploadHandler?` | `null` | **Handler uploadu obrazów.** Gdy `null`, używa `Base64ImageUploadHandler` - obrazy są konwertowane na Base64 i osadzane w treści. Zaimplementuj własny handler dla Azure Blob, S3, itp. |
+| `HtmlToMarkdownConverter` | `IHtmlToMarkdownConverter?` | `null` | **Konwerter HTML → Markdown (WYSIWYG).** Gdy `null`, używa domyślnego `HtmlToMarkdownConverter`. Zaimplementuj własny jeśli potrzebujesz niestandardowej konwersji z trybu WYSIWYG na Markdown. |
 | `IconProvider` | `IIconProvider?` | `null` | **Provider ikon dla paska narzędzi.** Gdy `null`, używa `MaterialIconProvider` (Material Icons). Zaimplementuj własny dla FontAwesome, Bootstrap Icons, itp. |
 | `LocalizationProvider` | `ILocalizationProvider?` | `null` | **Provider tłumaczeń interfejsu.** Gdy `null`, używa `DefaultLocalizationProvider` (angielski). Zaimplementuj własny dla polskiego lub innych języków. |
 | `MarkdownParser` | `IMarkdownParser?` | `null` | **Parser Markdown do HTML.** Gdy `null`, używa `MarkdownService` opartego na bibliotece Markdig. Zaimplementuj własny jeśli potrzebujesz innej składni. |
@@ -728,6 +732,9 @@ public interface ILocalizationProvider
 | `switchMode` | Tooltip: Przełącz tryb | "Przełącz tryb" |
 | `placeholder` | Tekst zastępczy edytora | "Zacznij pisać..." |
 | `noPreview` | Tekst gdy brak podglądu | "Brak treści do podglądu" |
+| `words` | Etykieta paska statusu: słowa | "Słowa" |
+| `characters` | Etykieta paska statusu: znaki | "Znaki" |
+| `lines` | Etykieta paska statusu: linie | "Linie" |
 
 #### Przykład: Pełna implementacja polska
 
@@ -782,6 +789,9 @@ public class PolishLocalizationProvider : ILocalizationProvider
             // Inne
             ["placeholder"] = "Zacznij pisać...",
             ["noPreview"] = "Brak treści do podglądu",
+            ["words"] = "Słowa",
+            ["characters"] = "Znaki",
+            ["lines"] = "Linie",
             ["uploadImage"] = "Prześlij obraz",
             ["insertLink"] = "Wstaw link",
             ["linkUrl"] = "Adres URL",
@@ -1222,11 +1232,13 @@ Edytor wymaga minimalnej ilości JavaScript do operacji na DOM, których Blazor 
 
 ### Moduł `ste-interop.js`
 
-Podzielony na 3 sekcje:
+Podzielony na 5 sekcji:
 
 1. **Operacje textarea** (tryb Markdown) — `getSelection`, `setSelection`, `insertText`, `getCurrentLine`, `syncScroll`
-2. **Operacje WYSIWYG** (contenteditable) — `execCommand`, `getHtml`, `setHtml`, `insertHtml`, `alignText`, `formatBlock`, itd.
-3. **Resize obrazków** — `initImageResize`, `disposeImageResize`, `setSelectedImageSize`, `deselectImage`
+2. **Operacje WYSIWYG** (contenteditable) — `execCommand`, `getHtml`, `setHtml`, `insertHtml`, `alignText`, `formatBlock`, `indent`, `outdent`
+3. **Skróty klawiaturowe WYSIWYG** — `initKeyboardShortcuts`, `disposeKeyboardShortcuts` (Ctrl+B/I/U/K/Z/Y)
+4. **Drag & drop i wklejanie obrazków** — `initImageDragDrop`, `disposeImageDragDrop`
+5. **Resize obrazków** — `initImageResize`, `disposeImageResize`, `setSelectedImageSize`, `deselectImage`
 
 Moduł jest ładowany automatycznie przez `SteJsInterop` przy użyciu dynamicznego `import()`. **Nie trzeba dodawać `<script>` tagu** — wystarczy referencja na CSS.
 
@@ -1295,6 +1307,52 @@ Style dla resize znajdują się w `wwwroot/css/wysiwyg.css` — klasy:
 - `.ste-img-handle` / `.ste-img-handle-nw/ne/sw/se` — uchwyty na rogach
 - `.ste-img-size-label` — etykieta rozmiaru pod obrazem
 - `.ste-img-resize-popup` — popup z wymiarami
+
+---
+
+## Pasek statusu
+
+Edytor wyświetla pasek statusu na dole z trzema licznikami aktualizowanymi w czasie rzeczywistym:
+
+| Licznik | Opis |
+|---------|------|
+| **Słowa** | Liczba słów (rozdzielonych białymi znakami) |
+| **Znaki** | Całkowita liczba znaków |
+| **Linie** | Liczba linii tekstu |
+
+Pasek statusu jest zawsze widoczny (niezależnie od trybu edycji). Etykiety są tłumaczone przez `ILocalizationProvider` za pomocą kluczy `words`, `characters`, `lines`.
+
+Stylowanie paska za pomocą klasy CSS `.ste-status-bar` — można nadpisać w arkuszu stylów aplikacji.
+
+---
+
+## Skróty klawiaturowe WYSIWYG
+
+W trybie WYSIWYG dostępne są następujące skróty klawiaturowe:
+
+| Skrót | Akcja |
+|-------|-------|
+| `Ctrl+B` | Pogrubienie |
+| `Ctrl+I` | Kursywa |
+| `Ctrl+U` | Podkreślenie |
+| `Ctrl+K` | Wstaw link (wyświetla prompt z polem URL) |
+| `Ctrl+Z` | Cofnij |
+| `Ctrl+Y` | Ponów |
+
+Skróty są inicjalizowane automatycznie przy przełączeniu do trybu WYSIWYG i zwalniane przy przełączeniu do trybu Markdown lub przy niszczeniu komponentu.
+
+---
+
+## Drag & drop i wklejanie obrazków (WYSIWYG)
+
+W trybie WYSIWYG można wstawiać obrazy przez:
+
+1. **Przeciągnięcie pliku** (drag & drop) — przeciągnij plik obrazu z systemu plików i upuść na obszar edytora
+2. **Wklejenie ze schowka** (Ctrl+V) — wklej obraz skopiowany np. ze zrzutu ekranu lub przeglądarki
+
+Wstawiony obraz jest przekazywany do skonfigurowanego `ImageUploadHandler` (tak samo jak przy wyborze pliku przez pasek narzędzi). Obsługiwane typy MIME to te zdefiniowane w `IImageUploadHandler.AllowedContentTypes`.
+
+**Callback JS → Blazor**: `OnImageDropped(string fileName, string base64, string contentType)` — wywoływany przez JS po upuszczeniu/wklejeniu; waliduje rozmiar i typ, następnie wywołuje `UploadAsync` i wstawia URL do edytora.
 
 ---
 

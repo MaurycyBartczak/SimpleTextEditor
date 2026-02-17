@@ -253,3 +253,19 @@
 .ste-preview h3.text-right {
     text-align: right;
 }
+
+/* Status bar */
+.ste-status-bar {
+    display: flex;
+    gap: 16px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--ste-text-muted);
+    background: var(--ste-toolbar-bg);
+    border-top: 1px solid var(--ste-border-color);
+    user-select: none;
+}
+
+.ste-status-bar span {
+    white-space: nowrap;
+}

@@ -76,4 +76,11 @@
                OnChange="HandleImageFileSelected" 
                accept="image/*" 
                style="display: none;" />
+    
+    @* Pasek statusu z licznikami *@
+    <div class="ste-status-bar">
+        <span>@LocalizationProviderInstance.Get("words"): @WordCount</span>
+        <span>@LocalizationProviderInstance.Get("characters"): @CharacterCount</span>
+        <span>@LocalizationProviderInstance.Get("lines"): @LineCount</span>
+    </div>
 </RadzenCard>
