@@ -27,7 +27,8 @@ Biblioteka komponentów Blazor do edycji tekstu w formacie Markdown z trybem WYS
 8. [Pasek statusu](#pasek-statusu)
 9. [Skróty klawiaturowe WYSIWYG](#skróty-klawiaturowe-wysiwyg)
 10. [Drag & drop i wklejanie obrazków (WYSIWYG)](#drag--drop-i-wklejanie-obrazków-wysiwyg)
-11. [Przykłady użycia](#przykłady-użycia)
+11. [Bezpieczeństwo (Security hardening)](#bezpieczeństwo-security-hardening)
+12. [Przykłady użycia](#przykłady-użycia)
 
 ---
 
@@ -222,15 +223,14 @@ public interface IImageUploadHandler
     
     /// <summary>
     /// Lista dozwolonych typów MIME.
-    /// Domyślnie: JPEG, PNG, GIF, WebP, SVG
+    /// Domyślnie: JPEG, PNG, GIF, WebP (SVG wyłączone ze względów bezpieczeństwa).
     /// </summary>
     IReadOnlyList<string> AllowedContentTypes => new[]
     {
         "image/jpeg",
         "image/png",
         "image/gif",
-        "image/webp",
-        "image/svg+xml"
+        "image/webp"
     };
 }
 ```
@@ -240,8 +240,10 @@ public interface IImageUploadHandler
 Zamiast implementować `IImageUploadHandler` bezpośrednio, **zalecam dziedziczenie z `ImageUploadHandlerBase`**. Klasa bazowa zapewnia:
 - ✅ Walidację rozmiaru pliku
 - ✅ Walidację typu MIME
-- ✅ Generowanie unikalnych nazw plików (Guid)
+- ✅ Walidację magic bytes (sygnatura pliku musi zgadzać się z deklarowanym typem MIME)
+- ✅ Generowanie unikalnych nazw plików (Guid) z rozszerzeniem na podstawie MIME (nie nazwy od klienta)
 - ✅ Mapowanie MIME → rozszerzenie
+- ✅ Domyślne blokowanie SVG
 
 Wystarczy zaimplementować jedną metodę `SaveAsync()`:
 
@@ -436,15 +438,6 @@ public class AzureBlobImageHandler : ImageUploadHandlerBase
     
     // Ogranicz do 5 MB
     public override long MaxFileSizeBytes => 5 * 1024 * 1024;
-    
-    // Bez SVG dla bezpieczeństwa
-    public override IReadOnlyList<string> AllowedContentTypes => new[]
-    {
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp"
-    };
 }
 ```
 
@@ -515,6 +508,7 @@ Domyślnie używany jest `MarkdownService` z biblioteką **Markdig** obsługują
 - Kod z podświetlaniem składni
 - Emoji
 - Footnotes
+- **Sanitizację HTML** — wbudowana warstwa bezpieczeństwa (HtmlSanitizer) neutralizuje XSS payloady (`<script>`, `onerror`, `javascript:` itp.) zachowując bezpieczne formatowanie
 
 ---
 
@@ -1356,6 +1350,81 @@ Wstawiony obraz jest przekazywany do skonfigurowanego `ImageUploadHandler` (tak 
 
 ---
 
+## Bezpieczeństwo 
+
+SimpleTextEditor zawiera wbudowane mechanizmy bezpieczeństwa chroniące przed najczęstszymi atakami webowymi.
+
+### Trust boundaries
+
+```
+Użytkownik (niezaufany)
+    │
+    ▼
+┌─────────────────────────────────┐
+│ Przeglądarka (JS interop)      │
+│ • Walidacja protokołów URL     │
+│ • Blokada javascript:/data:    │
+│ • Limit plików w drop/paste    │
+└───────────┬─────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────┐
+│ Blazor Server (C#)             │
+│ • Sanitizacja HTML (allowlista)│
+│ • Walidacja magic bytes        │
+│ • Kontrola rozmiaru base64     │
+│ • Debounce z cleanup zasobów   │
+└───────────┬─────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────┐
+│ Przechowywanie (zaufane)       │
+│ • Baza danych / S3 / Blob      │
+└─────────────────────────────────┘
+```
+
+### Sanitizacja HTML (XSS)
+
+Cały HTML generowany przez Markdig oraz HTML wprowadzany w trybie WYSIWYG przechodzi przez sanitizer oparty o **allowlistę**:
+
+| Element | Dozwolone | Blokowane |
+|---------|-----------|-----------|
+| **Tagi** | `h1-h6`, `p`, `strong`, `em`, `a`, `img`, `table`, `ul`, `ol`, `code`, `pre`, `blockquote`... | `script`, `iframe`, `object`, `embed`, `form`, `style`... |
+| **Atrybuty** | `href`, `src`, `alt`, `class`, `id`, `width`, `height`, `style` (z filtrem CSS) | `onclick`, `onerror`, `onload`, `onmouseover`... |
+| **Protokoły URL** | `http:`, `https:`, `mailto:`, `tel:` | `javascript:`, `vbscript:` |
+| **data: URI** | Tylko `data:image/*` w atrybucie `src` tagu `img` | `data:text/html`, `data:application/...` |
+
+Raw HTML w Markdown jest escapowany (`DisableHtml()` w Markdig), co uniemożliwia wstrzyknięcie kodu przez `<script>` lub `<img onerror=...>`.
+
+### Walidacja uploadu obrazów
+
+Przy użyciu `ImageUploadHandlerBase`:
+
+1. **Walidacja rozmiaru** — plik musi mieścić się w `MaxFileSizeBytes` (domyślnie 10 MB)
+2. **Walidacja typu MIME** — tylko dozwolone typy (`image/jpeg`, `image/png`, `image/gif`, `image/webp`)
+3. **Walidacja magic bytes** — sygnatura binarna pliku musi zgadzać się z deklarowanym typem MIME (ochrona przed spoofingiem: plik `.html` z `Content-Type: image/png` zostanie odrzucony)
+4. **Rozszerzenie z MIME** — nazwa pliku jest generowana na podstawie zweryfikowanego MIME, nie z oryginalnej nazwy od klienta
+5. **SVG domyślnie wyłączone** — SVG jest aktywnym formatem (może zawierać `<script>`) i nie jest dozwolony domyślnie
+
+### Ochrona przed DoS (drag & drop)
+
+- Rozmiar base64 jest szacowany **przed dekodowaniem** — zbyt duże payloady są odrzucane bez alokacji pamięci
+- `Convert.TryFromBase64String` z kontrolowanym buforem zamiast `Convert.FromBase64String`
+- Limit jednoczesnych plików w jednym drop/paste: **10**
+
+### Brak `eval()` w kodzie
+
+Wszystkie operacje JS wykonywane są przez dedykowane, eksportowane funkcje w module `ste-interop.js` 
+
+### Zalecenia dla produkcji
+
+1. **SignalR** — zmniejsz `MaximumReceiveMessageSize` (domyślnie 2 MB w produkcji, 10 MB w dev)
+2. **Rate limiting** — dodaj rate limiting na endpointy uploadu obrazów
+3. **CSP header** — skonfiguruj Content-Security-Policy bez `unsafe-eval`
+4. **HTTPS** — wymuszaj HTTPS w produkcji (`UseHsts()`, `UseHttpsRedirection()`)
+
+---
+
 ## Przykłady użycia
 
 ### 1. Podstawowy edytor
@@ -1584,7 +1653,8 @@ Wstawiony obraz jest przekazywany do skonfigurowanego `ImageUploadHandler` (tak 
     {
         if (firstRender)
         {
-            var width = await JS.InvokeAsync<int>("eval", "window.innerWidth");
+            // Użyj dedykowanej funkcji JS zamiast eval
+            var width = await JS.InvokeAsync<int>("getWindowWidth");
             currentPreviewMode = width < 768 ? PreviewMode.Toggle : PreviewMode.SideBySide;
             StateHasChanged();
         }

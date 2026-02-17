@@ -20,7 +20,14 @@ public abstract class ImageUploadHandlerBase : IImageUploadHandler
             throw new InvalidOperationException(
                 $"Typ zawartości '{contentType}' jest niedozwolony. Dozwolone typy: {string.Join(", ", AllowedContentTypes)}.");
 
-        var uniqueFileName = GenerateUniqueFileName(fileName, contentType);
+        // Waliduj magic bytes — zweryfikowany MIME musi zgadzać się z deklarowanym
+        var detectedMime = DetectMimeFromMagicBytes(content);
+        if (detectedMime == null || !string.Equals(detectedMime, contentType, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Sygnatura pliku nie zgadza się z deklarowanym typem '{contentType}'. Wykryto: '{detectedMime ?? "nieznany"}'.");
+
+        // Generuj rozszerzenie na podstawie zweryfikowanego MIME, nie nazwy od klienta
+        var uniqueFileName = GenerateUniqueFileName(contentType);
 
         return await SaveAsync(uniqueFileName, content, contentType);
     }
@@ -36,15 +43,12 @@ public abstract class ImageUploadHandlerBase : IImageUploadHandler
     protected abstract Task<string> SaveAsync(string uniqueFileName, byte[] content, string contentType);
 
     /// <summary>
-    /// Generuje unikalną nazwę pliku za pomocą Guid i oryginalnego rozszerzenia.
-    /// Nadpisz, aby dostosować strategię nazewnictwa.
+    /// Generuje unikalną nazwę pliku na podstawie zweryfikowanego typu MIME.
+    /// Rozszerzenie jest brane z MIME, nie z nazwy pliku od klienta.
     /// </summary>
-    protected virtual string GenerateUniqueFileName(string originalFileName, string contentType)
+    protected virtual string GenerateUniqueFileName(string contentType)
     {
-        var extension = Path.GetExtension(originalFileName);
-        if (string.IsNullOrEmpty(extension))
-            extension = GetExtensionFromMime(contentType);
-
+        var extension = GetExtensionFromMime(contentType);
         return $"{Guid.NewGuid()}{extension}";
     }
 
@@ -57,8 +61,7 @@ public abstract class ImageUploadHandlerBase : IImageUploadHandler
         "image/jpeg",
         "image/png",
         "image/gif",
-        "image/webp",
-        "image/svg+xml"
+        "image/webp"
     };
 
     /// <summary>
@@ -70,7 +73,36 @@ public abstract class ImageUploadHandlerBase : IImageUploadHandler
         "image/png" => ".png",
         "image/gif" => ".gif",
         "image/webp" => ".webp",
-        "image/svg+xml" => ".svg",
         _ => ".bin"
     };
+
+    /// <summary>
+    /// Wykrywa typ MIME na podstawie magic bytes (sygnatury pliku).
+    /// Zwraca null jeśli sygnatura jest nieznana.
+    /// </summary>
+    internal static string? DetectMimeFromMagicBytes(byte[] content)
+    {
+        if (content.Length < 4)
+            return null;
+
+        // JPEG: FF D8 FF
+        if (content[0] == 0xFF && content[1] == 0xD8 && content[2] == 0xFF)
+            return "image/jpeg";
+
+        // PNG: 89 50 4E 47
+        if (content[0] == 0x89 && content[1] == 0x50 && content[2] == 0x4E && content[3] == 0x47)
+            return "image/png";
+
+        // GIF: 47 49 46 38
+        if (content[0] == 0x47 && content[1] == 0x49 && content[2] == 0x46 && content[3] == 0x38)
+            return "image/gif";
+
+        // WebP: RIFF....WEBP
+        if (content.Length >= 12 &&
+            content[0] == 0x52 && content[1] == 0x49 && content[2] == 0x46 && content[3] == 0x46 &&
+            content[8] == 0x57 && content[9] == 0x45 && content[10] == 0x42 && content[11] == 0x50)
+            return "image/webp";
+
+        return null;
+    }
 }

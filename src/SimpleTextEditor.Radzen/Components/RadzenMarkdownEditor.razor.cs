@@ -330,9 +330,14 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     private async Task HandleWysiwygInput()
     {
         // Debounce: poczekaj DebounceDelayMs, potem zsynchronizuj HTML → Markdown
-        _debounceCts?.Cancel();
+        var oldCts = _debounceCts;
         _debounceCts = new CancellationTokenSource();
         var token = _debounceCts.Token;
+        if (oldCts != null)
+        {
+            oldCts.Cancel();
+            oldCts.Dispose();
+        }
         
         try
         {
@@ -519,12 +524,14 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     
     private async Task ExecuteUndo()
     {
-        await JSRuntime.InvokeVoidAsync("eval", "document.execCommand('undo')");
+        if (_jsInterop != null)
+            await _jsInterop.ExecUndoAsync();
     }
-    
+
     private async Task ExecuteRedo()
     {
-        await JSRuntime.InvokeVoidAsync("eval", "document.execCommand('redo')");
+        if (_jsInterop != null)
+            await _jsInterop.ExecRedoAsync();
     }
     
     private async Task InsertMarkdown(ToolbarItem item)
@@ -561,8 +568,8 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     
     private async Task TriggerImageUpload()
     {
-        await JSRuntime.InvokeVoidAsync("eval", 
-            $"document.getElementById('{_imageInputId}')?.click()");
+        if (_jsInterop != null)
+            await _jsInterop.ClickElementAsync(_imageInputId);
     }
     
     private async Task HandleImageFileSelected(InputFileChangeEventArgs e)
@@ -588,10 +595,11 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
         try
         {
             using var stream = file.OpenReadStream(maxAllowedSize: maxSize);
-            using var ms = new MemoryStream();
+            // Prealokuj MemoryStream z jawnym rozmiarem, unikając duplikacji bufora
+            using var ms = new MemoryStream(checked((int)file.Size));
             await stream.CopyToAsync(ms);
-            var content = ms.ToArray();
-            
+            var content = ms.GetBuffer().AsSpan(0, (int)ms.Length).ToArray();
+
             var url = await handler.UploadAsync(file.Name, content, file.ContentType);
             await InsertImageUrl(url);
         }
@@ -604,32 +612,58 @@ public partial class RadzenMarkdownEditor : ComponentBase, IAsyncDisposable
     /// <summary>
     /// Callback wywoływany przez JS po upuszczeniu lub wklejeniu obrazka.
     /// </summary>
+    private const int MaxDroppedFiles = 10;
+    private int _droppedFilesInProgress;
+
     [JSInvokable]
     public async Task OnImageDropped(string fileName, string base64, string contentType)
     {
         var handler = ImageUploadHandlerInstance;
-        
+
         if (!handler.AllowedContentTypes.Contains(contentType))
         {
             return;
         }
-        
+
+        // Limit liczby plików przetwarzanych jednocześnie
+        if (Interlocked.Increment(ref _droppedFilesInProgress) > MaxDroppedFiles)
+        {
+            Interlocked.Decrement(ref _droppedFilesInProgress);
+            return;
+        }
+
         try
         {
-            var content = Convert.FromBase64String(base64);
-            
+            // Oszacuj rozmiar dekodowanych danych przed alokacją
             var maxSize = handler.MaxFileSizeBytes > 0 ? handler.MaxFileSizeBytes : 10 * 1024 * 1024;
-            if (content.Length > maxSize)
+            var estimatedSize = (long)(base64.Length * 3) / 4;
+            if (estimatedSize > maxSize)
             {
                 return;
             }
-            
+
+            var buffer = new byte[estimatedSize + 2];
+            if (!Convert.TryFromBase64String(base64, buffer, out var bytesWritten))
+            {
+                return;
+            }
+
+            if (bytesWritten > maxSize)
+            {
+                return;
+            }
+
+            var content = buffer.AsSpan(0, bytesWritten).ToArray();
             var url = await handler.UploadAsync(fileName, content, contentType);
             await InsertImageUrl(url);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Błąd uploadu obrazu (drag/paste): {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _droppedFilesInProgress);
         }
     }
     

@@ -21,17 +21,18 @@ public class MarkdownService : IMarkdownParser
             .UseGridTables()
             .UseFootnotes()
             .UseAutoIdentifiers()
-            .UseGenericAttributes()
+            .DisableHtml()
             .Build();
     }
-    
+
     /// <inheritdoc />
     public string ToHtml(string markdown)
     {
         if (string.IsNullOrEmpty(markdown))
             return string.Empty;
-        
-        return Markdown.ToHtml(markdown, _pipeline);
+
+        var rawHtml = Markdown.ToHtml(markdown, _pipeline);
+        return HtmlSanitizationService.Sanitize(rawHtml);
     }
     
     /// <inheritdoc />

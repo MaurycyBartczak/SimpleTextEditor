@@ -40,11 +40,19 @@ public class Base64ImageUploadHandlerTests
     {
         IImageUploadHandler handler = _sut;
         var types = handler.AllowedContentTypes;
-        
+
         Assert.Contains("image/jpeg", types);
         Assert.Contains("image/png", types);
         Assert.Contains("image/gif", types);
         Assert.Contains("image/webp", types);
-        Assert.Contains("image/svg+xml", types);
+    }
+
+    [Fact]
+    public void DefaultAllowedTypes_DoesNotContainSvg()
+    {
+        IImageUploadHandler handler = _sut;
+        var types = handler.AllowedContentTypes;
+
+        Assert.DoesNotContain("image/svg+xml", types);
     }
 }

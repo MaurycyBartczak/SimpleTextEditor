@@ -10,6 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SimpleTextEditor.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HtmlSanitizer" Version="9.0.892" />
     <PackageReference Include="Markdig" Version="0.44.0" />
     <PackageReference Include="ReverseMarkdown" Version="5.0.0" />
   </ItemGroup>

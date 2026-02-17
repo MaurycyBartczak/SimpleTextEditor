@@ -174,6 +174,33 @@ public class SteJsInterop : IAsyncDisposable
         await module.InvokeVoidAsync("outdent");
     }
 
+    /// <summary>
+    /// Wykonuje undo na dokumencie (bez eval).
+    /// </summary>
+    public async ValueTask ExecUndoAsync()
+    {
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("execUndo");
+    }
+
+    /// <summary>
+    /// Wykonuje redo na dokumencie (bez eval).
+    /// </summary>
+    public async ValueTask ExecRedoAsync()
+    {
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("execRedo");
+    }
+
+    /// <summary>
+    /// Klika element o podanym ID (do triggerowania input file, bez eval).
+    /// </summary>
+    public async ValueTask ClickElementAsync(string elementId)
+    {
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("clickElement", elementId);
+    }
+
     // ============================================================
     // Sekcja 2b: Skróty klawiaturowe WYSIWYG
     // ============================================================

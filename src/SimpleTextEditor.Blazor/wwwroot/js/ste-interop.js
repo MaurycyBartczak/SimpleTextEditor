@@ -130,16 +130,41 @@ export function queryCommandState(command) {
 }
 
 /**
- * Tworzy link z zaznaczenia
+ * Sprawdza czy URL ma bezpieczny protokół
+ */
+function _isSafeUrl(url) {
+    if (!url) return false;
+    const allowed = ['http:', 'https:', 'mailto:', 'tel:'];
+    try {
+        const parsed = new URL(url, window.location.href);
+        return allowed.includes(parsed.protocol);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Sprawdza czy URL jest bezpieczny dla obrazka (http/https/data:image)
+ */
+function _isSafeImageUrl(url) {
+    if (!url) return false;
+    if (url.startsWith('data:image/')) return true;
+    return _isSafeUrl(url);
+}
+
+/**
+ * Tworzy link z zaznaczenia (z walidacją protokołu)
  */
 export function createLink(url) {
+    if (!_isSafeUrl(url)) return;
     document.execCommand('createLink', false, url);
 }
 
 /**
- * Wstawia obraz
+ * Wstawia obraz (z walidacją protokołu)
  */
 export function insertImage(src) {
+    if (!_isSafeImageUrl(src)) return;
     document.execCommand('insertImage', false, src);
 }
 
@@ -170,6 +195,28 @@ export function outdent() {
     document.execCommand('outdent', false, null);
 }
 
+/**
+ * Wykonuje undo na dokumencie
+ */
+export function execUndo() {
+    document.execCommand('undo', false, null);
+}
+
+/**
+ * Wykonuje redo na dokumencie
+ */
+export function execRedo() {
+    document.execCommand('redo', false, null);
+}
+
+/**
+ * Klika element o podanym ID (do triggerowania input file)
+ */
+export function clickElement(elementId) {
+    const el = document.getElementById(elementId);
+    if (el) el.click();
+}
+
 // ============================================================
 // SEKCJA 2b: Skróty klawiaturowe WYSIWYG (contenteditable)
 // ============================================================
@@ -195,7 +242,7 @@ function _onWysiwygKeyDown(e) {
         case 'k': {
             e.preventDefault();
             const url = prompt('Podaj URL linku:');
-            if (url) {
+            if (url && _isSafeUrl(url)) {
                 document.execCommand('createLink', false, url);
             }
             handled = true;

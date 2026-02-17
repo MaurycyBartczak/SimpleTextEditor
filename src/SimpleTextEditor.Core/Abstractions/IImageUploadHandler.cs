@@ -23,12 +23,11 @@ public interface IImageUploadHandler
     /// <summary>
     /// Lista dozwolonych typów MIME dla obrazów.
     /// </summary>
-    IReadOnlyList<string> AllowedContentTypes => new[]
-    {
+    IReadOnlyList<string> AllowedContentTypes =>
+    [
         "image/jpeg",
         "image/png",
         "image/gif",
-        "image/webp",
-        "image/svg+xml"
-    };
+        "image/webp"
+    ];
 }

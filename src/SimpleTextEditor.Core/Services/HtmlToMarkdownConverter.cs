@@ -14,21 +14,23 @@ public class HtmlToMarkdownConverter : IHtmlToMarkdownConverter
     {
         var config = new ReverseMarkdown.Config
         {
-            UnknownTags = Config.UnknownTagsOption.Bypass,
+            UnknownTags = Config.UnknownTagsOption.Drop,
             GithubFlavored = true,
             RemoveComments = true,
             SmartHrefHandling = true
         };
-        
+
         _converter = new Converter(config);
     }
-    
+
     /// <inheritdoc />
     public string Convert(string html)
     {
         if (string.IsNullOrEmpty(html))
             return string.Empty;
-        
-        return _converter.Convert(html).Trim();
+
+        // Sanityzuj HTML przed konwersją — usuń niebezpieczne tagi/atrybuty
+        var sanitized = HtmlSanitizationService.Sanitize(html);
+        return _converter.Convert(sanitized).Trim();
     }
 }

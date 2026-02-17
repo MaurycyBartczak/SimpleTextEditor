@@ -60,4 +60,47 @@ public class HtmlToMarkdownConverterTests
         var result = _sut.Convert("<p>Hello World</p>");
         Assert.Equal("Hello World", result);
     }
+
+    // === Testy regresyjne XSS ===
+
+    [Fact]
+    public void Convert_ScriptTag_IsRemoved()
+    {
+        var result = _sut.Convert("<p>safe</p><script>alert(1)</script>");
+        Assert.DoesNotContain("<script", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("alert", result);
+        Assert.Contains("safe", result);
+    }
+
+    [Fact]
+    public void Convert_ImgOnerror_IsNeutralized()
+    {
+        var result = _sut.Convert("<img src=\"x\" onerror=\"alert(1)\">");
+        Assert.DoesNotContain("onerror", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Convert_JavascriptHref_IsNeutralized()
+    {
+        var result = _sut.Convert("<a href=\"javascript:alert(1)\">click</a>");
+        Assert.DoesNotContain("javascript:", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Convert_UnknownTags_AreDropped()
+    {
+        var result = _sut.Convert("<custom-tag>payload</custom-tag><p>safe</p>");
+        Assert.DoesNotContain("<custom-tag", result);
+        Assert.Contains("safe", result);
+    }
+
+    [Fact]
+    public void Convert_SafeHtml_PreservesContent()
+    {
+        var html = "<h1>Title</h1><p><strong>bold</strong> and <em>italic</em></p>";
+        var result = _sut.Convert(html);
+        Assert.Contains("# Title", result);
+        Assert.Contains("**bold**", result);
+        Assert.Contains("*italic*", result);
+    }
 }

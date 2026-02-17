@@ -8,10 +8,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Configure SignalR for large message sizes (required for base64 images)
+// Configure SignalR for large message sizes (required for base64 images).
+// UWAGA BEZPIECZEŃSTWO: Duży limit zwiększa powierzchnię DoS.
+// W produkcji rozważ mniejszy limit (np. 1-2 MB) oraz rate limiting.
+// Wartość powinna być dostosowana per-środowisko (Development vs Production).
 builder.Services.AddSignalR(options =>
 {
-    options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB
+    options.MaximumReceiveMessageSize = builder.Environment.IsDevelopment()
+        ? 10 * 1024 * 1024   // 10 MB — rozwój (wygoda)
+        : 2 * 1024 * 1024;   // 2 MB — produkcja (bezpieczeństwo)
 });
 
 // Add Radzen services

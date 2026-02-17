@@ -76,4 +76,58 @@ public class MarkdownServiceTests
         var result = _sut.ToPlainText(markdown).Trim();
         Assert.Contains(expectedText, result);
     }
+
+    // === Testy regresyjne XSS ===
+
+    [Theory]
+    [InlineData("<script>alert(1)</script>")]
+    [InlineData("<SCRIPT>alert(1)</SCRIPT>")]
+    public void ToHtml_ScriptTag_IsNeutralized(string payload)
+    {
+        var result = _sut.ToHtml(payload);
+        Assert.DoesNotContain("<script", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ToHtml_ImgOnerror_IsNeutralized()
+    {
+        var result = _sut.ToHtml("<img src=x onerror=alert(1)>");
+        // DisableHtml() escapuje raw HTML — nie ma atrybutu onerror w DOM
+        Assert.DoesNotContain("<img", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ToHtml_JavascriptLink_IsNeutralized()
+    {
+        var result = _sut.ToHtml("[click](javascript:alert(1))");
+        Assert.DoesNotContain("javascript:", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ToHtml_OnClickAttribute_IsNeutralized()
+    {
+        var result = _sut.ToHtml("<div onclick=\"alert(1)\">test</div>");
+        // DisableHtml() escapuje raw HTML — onclick nie jest atrybutem DOM
+        Assert.DoesNotContain("<div onclick", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ToHtml_IframeTag_IsRemoved()
+    {
+        var result = _sut.ToHtml("<iframe src=\"https://evil.com\"></iframe>");
+        Assert.DoesNotContain("<iframe", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ToHtml_SafeMarkdown_PreservesFormatting()
+    {
+        // Upewniamy się że sanitizacja nie łamie normalnego contentu
+        var markdown = "# Title\n\n**bold** and *italic*\n\n- list item\n\n[link](https://safe.com)";
+        var result = _sut.ToHtml(markdown);
+        Assert.Contains("<h1", result);
+        Assert.Contains("<strong>bold</strong>", result);
+        Assert.Contains("<em>italic</em>", result);
+        Assert.Contains("<li>", result);
+        Assert.Contains("https://safe.com", result);
+    }
 }
